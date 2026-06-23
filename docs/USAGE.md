@@ -92,6 +92,52 @@ Install the Godot MCP runtime server into /home/me/dev/MyGame
 
 Then add `scripts/mcp_interaction_server.gd` as Autoload named `McpInteractionServer`.
 
+### Local connection
+
+Use this when Godot and `godot-mcp-go` are on the same machine. This is the default mode.
+
+```bash
+GODOT_MCP_RUNTIME_ADDR=127.0.0.1:9090 godot-mcp-go
+```
+
+### Remote connection with SSH tunnel
+
+Recommended remote setup. Godot keeps listening only on `127.0.0.1`, and SSH carries the traffic securely.
+
+```bash
+ssh -L 9090:127.0.0.1:9090 user@GODOT_MACHINE_IP
+GODOT_MCP_RUNTIME_ADDR=127.0.0.1:9090 godot-mcp-go
+```
+
+### Native remote TCP
+
+Use only on trusted LAN/VPN networks. The runtime server can execute GDScript and manipulate the running game.
+
+On the Godot machine:
+
+```bash
+GODOT_MCP_BIND_HOST=0.0.0.0 \
+GODOT_MCP_BIND_PORT=9090 \
+GODOT_MCP_TOKEN='change-this-long-random-token' \
+godot --path /home/me/dev/MyGame
+```
+
+On the MCP machine:
+
+```bash
+GODOT_MCP_RUNTIME_ADDR=GODOT_MACHINE_IP:9090 \
+GODOT_MCP_TOKEN='change-this-long-random-token' \
+godot-mcp-go
+```
+
+Security checklist:
+
+- Prefer SSH tunnel for remote access.
+- Use native remote TCP only behind a firewall or VPN.
+- Always set `GODOT_MCP_TOKEN` when binding to `0.0.0.0` or a LAN IP.
+- Restrict inbound port `9090` to the MCP machine IP.
+- Do not expose the runtime server to the public internet.
+
 Run the game and use prompts such as:
 
 ```text

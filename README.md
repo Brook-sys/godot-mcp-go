@@ -84,6 +84,77 @@ Override address for the Go MCP process:
 GODOT_MCP_RUNTIME_ADDR=127.0.0.1:9090
 ```
 
+### Runtime connection modes
+
+#### 1. Local, default and safest
+
+Use this when the MCP server and Godot run on the same machine.
+
+Godot runtime autoload defaults:
+
+```text
+host: 127.0.0.1
+port: 9090
+token: disabled
+```
+
+MCP server:
+
+```bash
+GODOT_MCP_RUNTIME_ADDR=127.0.0.1:9090 godot-mcp-go
+```
+
+#### 2. Remote through SSH tunnel, recommended for remote use
+
+Use this when Godot runs on another machine but you do not want to expose the Godot TCP server on the network.
+
+On the machine running `godot-mcp-go`:
+
+```bash
+ssh -L 9090:127.0.0.1:9090 user@GODOT_MACHINE_IP
+GODOT_MCP_RUNTIME_ADDR=127.0.0.1:9090 godot-mcp-go
+```
+
+Godot can keep the default `127.0.0.1:9090` listener.
+
+#### 3. Native remote TCP, use only on trusted networks
+
+This exposes the Godot MCP runtime server to the network. The runtime server can execute code and modify your running game. Do not expose it to the public internet.
+
+On the machine running Godot, configure the autoload server through environment variables before launching Godot:
+
+```bash
+GODOT_MCP_BIND_HOST=0.0.0.0 \
+GODOT_MCP_BIND_PORT=9090 \
+GODOT_MCP_TOKEN='change-this-long-random-token' \
+godot --path /path/to/project
+```
+
+Or set equivalent Godot project settings:
+
+```text
+godot_mcp/runtime_host = "0.0.0.0"
+godot_mcp/runtime_port = 9090
+godot_mcp/runtime_token = "change-this-long-random-token"
+```
+
+On the machine running the MCP server:
+
+```bash
+GODOT_MCP_RUNTIME_ADDR=GODOT_MACHINE_IP:9090 \
+GODOT_MCP_TOKEN='change-this-long-random-token' \
+godot-mcp-go
+```
+
+Security recommendations:
+
+- Prefer SSH tunnel whenever possible.
+- Keep the default `127.0.0.1` for local-only use.
+- If using native remote TCP, always set `GODOT_MCP_TOKEN`.
+- Use firewall rules to allow only the MCP machine IP.
+- Never expose port `9090` directly to the internet.
+- Rotate the token if logs, shell history, or config files may have leaked it.
+
 ## Core tools
 
 ### Project/process

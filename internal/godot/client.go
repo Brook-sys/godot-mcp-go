@@ -20,6 +20,7 @@ const DefaultRuntimeAddress = "127.0.0.1:9090"
 type Client struct {
 	GodotPath      string
 	RuntimeAddress string
+	RuntimeToken   string
 	Timeout        time.Duration
 }
 
@@ -27,6 +28,7 @@ func NewClient() Client {
 	return Client{
 		GodotPath:      findGodotPath(),
 		RuntimeAddress: envOrDefault("GODOT_MCP_RUNTIME_ADDR", DefaultRuntimeAddress),
+		RuntimeToken:   os.Getenv("GODOT_MCP_TOKEN"),
 		Timeout:        30 * time.Second,
 	}
 }
@@ -65,7 +67,11 @@ func (c Client) RunOperation(ctx context.Context, projectPath, operation string,
 }
 
 func (c Client) RuntimeCommand(ctx context.Context, command string, params map[string]any) (map[string]any, error) {
-	payload, err := json.Marshal(map[string]any{"command": command, "params": params})
+	message := map[string]any{"command": command, "params": params}
+	if c.RuntimeToken != "" {
+		message["token"] = c.RuntimeToken
+	}
+	payload, err := json.Marshal(message)
 	if err != nil {
 		return nil, err
 	}

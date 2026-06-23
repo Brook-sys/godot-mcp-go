@@ -9,21 +9,62 @@ var _client: StreamPeerTCP
 var _buffer: String = ""
 var _busy: bool = false
 var _busy_since: float = 0.0
-const PORT: int = 9090
+const DEFAULT_HOST: String = "127.0.0.1"
+const DEFAULT_PORT: int = 9090
 const BUSY_TIMEOUT: float = 30.0
+var _bind_host: String = DEFAULT_HOST
+var _bind_port: int = DEFAULT_PORT
+var _auth_token: String = ""
 var _key_map: Dictionary
 var _held_keys: Dictionary = {}
 
 func _ready() -> void:
 	# Ensure MCP server keeps processing even when game is paused
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_init_runtime_config()
 	_init_key_map()
 	_server = TCPServer.new()
-	var err: int = _server.listen(PORT, "127.0.0.1")
+	var err: int = _server.listen(_bind_port, _bind_host)
 	if err != OK:
-		push_error("McpInteractionServer: Failed to listen on port %d, error: %d" % [PORT, err])
+		push_error("McpInteractionServer: Failed to listen on %s:%d, error: %d" % [_bind_host, _bind_port, err])
 		return
-	print("McpInteractionServer: Listening on 127.0.0.1:%d" % PORT)
+	print("McpInteractionServer: Listening on %s:%d" % [_bind_host, _bind_port])
+	if _auth_token.is_empty():
+		print("McpInteractionServer: Token authentication disabled")
+	else:
+		print("McpInteractionServer: Token authentication enabled")
+
+
+func _init_runtime_config() -> void:
+	_bind_host = _get_config_string("godot_mcp/runtime_host", "GODOT_MCP_BIND_HOST", DEFAULT_HOST)
+	_bind_port = _get_config_int("godot_mcp/runtime_port", "GODOT_MCP_BIND_PORT", DEFAULT_PORT)
+	_auth_token = _get_config_string("godot_mcp/runtime_token", "GODOT_MCP_TOKEN", "")
+
+
+func _get_config_string(project_key: String, env_key: String, default_value: String) -> String:
+	if ProjectSettings.has_setting(project_key):
+		var project_value: Variant = ProjectSettings.get_setting(project_key)
+		if str(project_value) != "":
+			return str(project_value)
+	if OS.has_environment(env_key):
+		var env_value: String = OS.get_environment(env_key)
+		if env_value != "":
+			return env_value
+	return default_value
+
+
+func _get_config_int(project_key: String, env_key: String, default_value: int) -> int:
+	var value: String = _get_config_string(project_key, env_key, str(default_value))
+	if value.is_valid_int():
+		return int(value)
+	push_warning("McpInteractionServer: Invalid integer for %s/%s: %s. Using %d" % [project_key, env_key, value, default_value])
+	return default_value
+
+
+func _is_authorized(data: Dictionary) -> bool:
+	if _auth_token.is_empty():
+		return true
+	return str(data.get("token", "")) == _auth_token
 
 
 func _process(_delta: float) -> void:
@@ -97,6 +138,10 @@ func _handle_command(json_str: String) -> void:
 	var data: Variant = json.data
 	if not data is Dictionary:
 		_send_response({"error": "Expected JSON object"})
+		return
+
+	if not _is_authorized(data):
+		_send_response({"error": "Unauthorized: invalid or missing token"})
 		return
 
 	var command: String = data.get("command", "")
