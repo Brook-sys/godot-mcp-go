@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Brook-sys/godot-mcp-go/internal/godot"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/renatogalera/godot-mcp-go/internal/godot"
 )
 
 type Server struct {

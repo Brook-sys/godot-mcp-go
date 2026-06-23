@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/renatogalera/godot-mcp-go/internal/mcpserver"
+	"github.com/Brook-sys/godot-mcp-go/internal/mcpserver"
 )
 
 var version = "dev"

@@ -1,4 +1,4 @@
-module github.com/renatogalera/godot-mcp-go
+module github.com/Brook-sys/godot-mcp-go
 
 go 1.23.0
 
