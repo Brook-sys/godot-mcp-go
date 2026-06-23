@@ -32,7 +32,9 @@ Most runtime tools are registered and forwarded to the embedded `mcp_interaction
 
 ## Install
 
-Download a release binary from GitHub Releases, or build locally:
+See the full installation guide: [docs/installation.md](docs/installation.md).
+
+Quick build from source:
 
 ```bash
 go build -o godot-mcp-go ./cmd/godot-mcp-go
