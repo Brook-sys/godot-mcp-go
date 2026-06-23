@@ -45,3 +45,26 @@ func TestExtractProjectValue(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestParseProjectSettings(t *testing.T) {
+	settings := parseProjectSettings("[application]\nconfig/name=\"Demo\"\n")
+	if settings["application"]["config/name"] != "\"Demo\"" {
+		t.Fatalf("unexpected settings: %#v", settings)
+	}
+}
+
+func TestSetProjectSettingUpdatesExistingKey(t *testing.T) {
+	got := setProjectSetting("[application]\nconfig/name=\"Old\"\n", "application", "config/name", "\"New\"")
+	want := "[application]\nconfig/name=\"New\"\n"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestQuoteGodotString(t *testing.T) {
+	got := quoteGodotString(`res://a"b.tscn`)
+	want := `"res://a\"b.tscn"`
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}

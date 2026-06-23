@@ -20,7 +20,7 @@ This repository contains the production-ready Go foundation and compatibility br
 - Godot executable discovery through `GODOT_PATH` or `PATH`.
 - Runtime TCP client for `game_*` commands.
 - Headless Godot operation runner.
-- File I/O and project metadata tools.
+- File I/O, project metadata, settings, script, shader, and export tools.
 - Release automation with GoReleaser.
 
 Most runtime tools are registered and forwarded to the embedded `mcp_interaction_server.gd`. Headless operations supported by the embedded `godot_operations.gd` are also forwarded.
@@ -95,14 +95,23 @@ GODOT_MCP_RUNTIME_ADDR=127.0.0.1:9090
 - `get_debug_output`
 - `list_projects`
 - `get_project_info`
+- `create_project`
+- `read_project_settings`
+- `modify_project_settings`
+- `set_main_scene`
+- `list_project_files`
 - `install_runtime_server`
+- `export_project`
 
-### File I/O
+### File I/O and editor helpers
 
 - `read_file`
 - `write_file`
 - `delete_file`
 - `create_directory`
+- `rename_file`
+- `create_script`
+- `manage_shader`
 
 ### Headless Godot operations
 

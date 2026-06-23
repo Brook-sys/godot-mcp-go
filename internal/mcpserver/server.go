@@ -45,10 +45,19 @@ func (s *Server) registerTools(m *server.MCPServer) {
 	m.AddTool(mcp.NewTool("install_runtime_server", mcp.WithDescription("Copy MCP runtime autoload script into a Godot project"), mcp.WithString("project_path", mcp.Required(), mcp.Description("Absolute path to Godot project")), mcp.WithString("script_path", mcp.Description("Destination path relative to project root"))), s.installRuntimeServer)
 	m.AddTool(mcp.NewTool("list_projects", mcp.WithDescription("Find Godot projects below a directory"), mcp.WithString("directory", mcp.Required(), mcp.Description("Directory to scan"))), s.listProjects)
 	m.AddTool(mcp.NewTool("get_project_info", mcp.WithDescription("Get Godot project metadata"), mcp.WithString("project_path", mcp.Required(), mcp.Description("Absolute path to Godot project"))), s.getProjectInfo)
+	m.AddTool(mcp.NewTool("create_project", mcp.WithDescription("Create a new Godot project"), mcp.WithString("project_path", mcp.Required(), mcp.Description("Directory for the new Godot project")), mcp.WithString("name", mcp.Required(), mcp.Description("Project name")), mcp.WithString("main_scene", mcp.Description("Optional main scene path"))), s.createProject)
+	m.AddTool(mcp.NewTool("read_project_settings", mcp.WithDescription("Read project.godot as JSON"), mcp.WithString("project_path", mcp.Required(), mcp.Description("Absolute path to Godot project"))), s.readProjectSettings)
+	m.AddTool(mcp.NewTool("modify_project_settings", mcp.WithDescription("Set a project.godot value"), mcp.WithString("project_path", mcp.Required(), mcp.Description("Absolute path to Godot project")), mcp.WithString("section", mcp.Required(), mcp.Description("Settings section")), mcp.WithString("key", mcp.Required(), mcp.Description("Setting key")), mcp.WithString("value", mcp.Required(), mcp.Description("Raw Godot setting value"))), s.modifyProjectSettings)
+	m.AddTool(mcp.NewTool("set_main_scene", mcp.WithDescription("Set application main scene"), mcp.WithString("project_path", mcp.Required(), mcp.Description("Absolute path to Godot project")), mcp.WithString("scene_path", mcp.Required(), mcp.Description("Scene path, usually res://..."))), s.setMainScene)
+	m.AddTool(mcp.NewTool("list_project_files", mcp.WithDescription("List project files with optional extension filter"), mcp.WithString("project_path", mcp.Required(), mcp.Description("Absolute path to Godot project")), mcp.WithString("extension", mcp.Description("Optional extension like .gd or gd"))), s.listProjectFiles)
 	m.AddTool(mcp.NewTool("read_file", mcp.WithDescription("Read a text file inside a Godot project"), mcp.WithString("project_path", mcp.Required(), mcp.Description("Absolute path to Godot project")), mcp.WithString("file_path", mcp.Required(), mcp.Description("Path relative to project root"))), s.readFile)
 	m.AddTool(mcp.NewTool("write_file", mcp.WithDescription("Create or overwrite a text file inside a Godot project"), mcp.WithString("project_path", mcp.Required(), mcp.Description("Absolute path to Godot project")), mcp.WithString("file_path", mcp.Required(), mcp.Description("Path relative to project root")), mcp.WithString("content", mcp.Required(), mcp.Description("File content"))), s.writeFile)
 	m.AddTool(mcp.NewTool("create_directory", mcp.WithDescription("Create a directory inside a Godot project"), mcp.WithString("project_path", mcp.Required(), mcp.Description("Absolute path to Godot project")), mcp.WithString("directory_path", mcp.Required(), mcp.Description("Path relative to project root"))), s.createDirectory)
 	m.AddTool(mcp.NewTool("delete_file", mcp.WithDescription("Delete a file inside a Godot project"), mcp.WithString("project_path", mcp.Required(), mcp.Description("Absolute path to Godot project")), mcp.WithString("file_path", mcp.Required(), mcp.Description("Path relative to project root"))), s.deleteFile)
+	m.AddTool(mcp.NewTool("rename_file", mcp.WithDescription("Rename or move a file inside a Godot project"), mcp.WithString("project_path", mcp.Required(), mcp.Description("Absolute path to Godot project")), mcp.WithString("from_path", mcp.Required(), mcp.Description("Current path relative to project root")), mcp.WithString("to_path", mcp.Required(), mcp.Description("New path relative to project root"))), s.renameFile)
+	m.AddTool(mcp.NewTool("create_script", mcp.WithDescription("Create a GDScript file from a template"), mcp.WithString("project_path", mcp.Required(), mcp.Description("Absolute path to Godot project")), mcp.WithString("file_path", mcp.Required(), mcp.Description("Script path relative to project root")), mcp.WithString("class_name", mcp.Description("Optional class_name")), mcp.WithString("extends", mcp.Description("Base Godot class, defaults to Node"))), s.createScript)
+	m.AddTool(mcp.NewTool("manage_shader", mcp.WithDescription("Create or read a .gdshader file"), mcp.WithString("project_path", mcp.Required(), mcp.Description("Absolute path to Godot project")), mcp.WithString("action", mcp.Required(), mcp.Description("read or create")), mcp.WithString("file_path", mcp.Required(), mcp.Description("Shader path relative to project root")), mcp.WithString("shader_type", mcp.Description("canvas_item, spatial, particles, or sky")), mcp.WithString("content", mcp.Description("Shader content for create"))), s.manageShader)
+	m.AddTool(mcp.NewTool("export_project", mcp.WithDescription("Run Godot export for a preset"), mcp.WithString("project_path", mcp.Required(), mcp.Description("Absolute path to Godot project")), mcp.WithString("preset", mcp.Required(), mcp.Description("Export preset name")), mcp.WithString("output_path", mcp.Required(), mcp.Description("Export output path")), mcp.WithBoolean("headless", mcp.Description("Use --headless, defaults true"))), s.exportProject)
 
 	for _, tool := range headlessTools() {
 		name := tool.name
@@ -295,6 +304,114 @@ func (s *Server) getProjectInfo(_ context.Context, req mcp.CallToolRequest) (*mc
 	return textResult(string(data)), nil
 }
 
+func (s *Server) createProject(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	projectPath, err := req.RequireString("project_path")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	name, err := req.RequireString("name")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	if err := os.MkdirAll(projectPath, 0o755); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	mainScene := stringArg(req, "main_scene", "")
+	content := buildProjectGodot(name, mainScene)
+	if err := os.WriteFile(filepath.Join(projectPath, "project.godot"), []byte(content), 0o644); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	return textResult("Godot project created: " + projectPath), nil
+}
+
+func (s *Server) readProjectSettings(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	projectPath, err := req.RequireString("project_path")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	data, err := os.ReadFile(filepath.Join(projectPath, "project.godot"))
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	settings := parseProjectSettings(string(data))
+	out, _ := json.MarshalIndent(settings, "", "  ")
+	return textResult(string(out)), nil
+}
+
+func (s *Server) modifyProjectSettings(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	projectPath, err := req.RequireString("project_path")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	section, err := req.RequireString("section")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	key, err := req.RequireString("key")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	value, err := req.RequireString("value")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	settingsPath := filepath.Join(projectPath, "project.godot")
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	updated := setProjectSetting(string(data), section, key, value)
+	if err := os.WriteFile(settingsPath, []byte(updated), 0o644); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	return textResult(fmt.Sprintf("Set [%s] %s=%s", section, key, value)), nil
+}
+
+func (s *Server) setMainScene(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	scenePath, err := req.RequireString("scene_path")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	args := req.GetArguments()
+	args["section"] = "application"
+	args["key"] = "run/main_scene"
+	args["value"] = quoteGodotString(scenePath)
+	return s.modifyProjectSettings(ctx, req)
+}
+
+func (s *Server) listProjectFiles(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	projectPath, err := req.RequireString("project_path")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	extension := strings.TrimSpace(stringArg(req, "extension", ""))
+	if extension != "" && !strings.HasPrefix(extension, ".") {
+		extension = "." + extension
+	}
+	var files []string
+	_ = filepath.WalkDir(projectPath, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			if strings.HasPrefix(d.Name(), ".") && path != projectPath {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if extension != "" && !strings.EqualFold(filepath.Ext(path), extension) {
+			return nil
+		}
+		rel, err := filepath.Rel(projectPath, path)
+		if err == nil {
+			files = append(files, filepath.ToSlash(rel))
+		}
+		return nil
+	})
+	out, _ := json.MarshalIndent(files, "", "  ")
+	return textResult(string(out)), nil
+}
+
 func (s *Server) readFile(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	path, err := requiredProjectFile(req, "file_path")
 	if err != nil {
@@ -355,6 +472,105 @@ func (s *Server) deleteFile(_ context.Context, req mcp.CallToolRequest) (*mcp.Ca
 	return textResult("File deleted: " + path), nil
 }
 
+func (s *Server) renameFile(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	from, err := requiredProjectFile(req, "from_path")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	to, err := requiredProjectFile(req, "to_path")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	if err := os.MkdirAll(filepath.Dir(to), 0o755); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	if err := os.Rename(from, to); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	return textResult(fmt.Sprintf("Renamed %s to %s", from, to)), nil
+}
+
+func (s *Server) createScript(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	path, err := requiredProjectFile(req, "file_path")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	className := stringArg(req, "class_name", "")
+	extends := stringArg(req, "extends", "Node")
+	var builder strings.Builder
+	if className != "" {
+		builder.WriteString("class_name " + className + "\n")
+	}
+	builder.WriteString("extends " + extends + "\n\n")
+	builder.WriteString("func _ready() -> void:\n\tpass\n\n")
+	builder.WriteString("func _process(delta: float) -> void:\n\tpass\n")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	if err := os.WriteFile(path, []byte(builder.String()), 0o644); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	return textResult("Script created: " + path), nil
+}
+
+func (s *Server) manageShader(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	action, err := req.RequireString("action")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	path, err := requiredProjectFile(req, "file_path")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	if action == "read" {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		return textResult(string(data)), nil
+	}
+	if action == "create" {
+		shaderType := stringArg(req, "shader_type", "canvas_item")
+		content := stringArg(req, "content", "shader_type "+shaderType+";\n\nfunc fragment() {\n\t// COLOR = vec4(1.0);\n}\n")
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		return textResult("Shader created: " + path), nil
+	}
+	return mcp.NewToolResultError("invalid action: " + action), nil
+}
+
+func (s *Server) exportProject(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	projectPath, err := req.RequireString("project_path")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	preset, err := req.RequireString("preset")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	outPath, err := req.RequireString("output_path")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	headless := true
+	if h, ok := req.GetArguments()["headless"].(bool); ok {
+		headless = h
+	}
+	args := []string{"--path", projectPath, "--export-release", preset, outPath}
+	if headless {
+		args = append(args, "--headless")
+	}
+	out, err := s.client.RunGodot(ctx, args...)
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	return textResult(strings.TrimSpace(out)), nil
+}
+
 func textResult(text string) *mcp.CallToolResult {
 	return mcp.NewToolResultText(text)
 }
@@ -411,6 +627,93 @@ func mapStringAny(value any) map[string]any {
 		return map[string]any{}
 	}
 	return out
+}
+
+func buildProjectGodot(name, mainScene string) string {
+	var builder strings.Builder
+	builder.WriteString("; Engine configuration file.\n")
+	builder.WriteString("; Generated by godot-mcp-go.\n\n")
+	builder.WriteString("config_version=5\n\n")
+	builder.WriteString("[application]\n\n")
+	builder.WriteString("config/name=")
+	builder.WriteString(quoteGodotString(name))
+	builder.WriteString("\n")
+	if mainScene != "" {
+		builder.WriteString("run/main_scene=")
+		builder.WriteString(quoteGodotString(mainScene))
+		builder.WriteString("\n")
+	}
+	return builder.String()
+}
+
+func parseProjectSettings(content string) map[string]map[string]string {
+	settings := map[string]map[string]string{}
+	section := ""
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, ";") {
+			continue
+		}
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			section = strings.TrimSuffix(strings.TrimPrefix(line, "["), "]")
+			if settings[section] == nil {
+				settings[section] = map[string]string{}
+			}
+			continue
+		}
+		if section == "" || !strings.Contains(line, "=") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		settings[section][strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+	}
+	return settings
+}
+
+func setProjectSetting(content, section, key, value string) string {
+	lines := strings.Split(content, "\n")
+	sectionHeader := "[" + section + "]"
+	inSection := false
+	sectionFound := false
+	keySet := false
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
+			if inSection && !keySet {
+				before := append([]string{}, lines[:i]...)
+				before = append(before, key+"="+value)
+				lines = append(before, lines[i:]...)
+				keySet = true
+				break
+			}
+			inSection = trimmed == sectionHeader
+			if inSection {
+				sectionFound = true
+			}
+			continue
+		}
+		if inSection && strings.HasPrefix(trimmed, key+"=") {
+			lines[i] = key + "=" + value
+			keySet = true
+			break
+		}
+	}
+	if !sectionFound {
+		if strings.TrimSpace(content) != "" && !strings.HasSuffix(content, "\n") {
+			content += "\n"
+		}
+		return content + "\n" + sectionHeader + "\n\n" + key + "=" + value + "\n"
+	}
+	if !keySet {
+		lines = append(lines, key+"="+value)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func quoteGodotString(value string) string {
+	escaped := strings.ReplaceAll(value, "\\", "\\\\")
+	escaped = strings.ReplaceAll(escaped, "\"", "\\\"")
+	return "\"" + escaped + "\""
 }
 
 func extractProjectValue(content, key string) string {

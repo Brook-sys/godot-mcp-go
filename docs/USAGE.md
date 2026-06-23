@@ -35,17 +35,32 @@ Get project info for /home/me/dev/MyGame
 
 This uses `get_project_info` and reports main scene and file counts.
 
-## 4. Edit files
+## 4. Create and configure projects
+
+```text
+Create a Godot project named MyGame at /home/me/dev/MyGame
+Set the main scene to res://scenes/main.tscn
+Read project settings
+Set display/window/size/viewport_width to 1280
+List all .gd files
+```
+
+These use `create_project`, `set_main_scene`, `read_project_settings`, `modify_project_settings`, and `list_project_files`.
+
+## 5. Edit files and assets
 
 ```text
 Read scripts/player.gd from my Godot project
 Write a new movement script to scripts/player.gd
 Create directory scenes/levels
+Create a CharacterBody2D script at scripts/player.gd
+Create a canvas_item shader at shaders/flash.gdshader
+Rename scripts/player.gd to scripts/characters/player.gd
 ```
 
-These use `read_file`, `write_file`, and `create_directory`.
+These use `read_file`, `write_file`, `create_directory`, `create_script`, `manage_shader`, and `rename_file`.
 
-## 5. Headless scene operations
+## 6. Headless scene operations
 
 Headless tools run Godot with `--headless --path <project> --script <embedded godot_operations.gd>`.
 
@@ -67,7 +82,7 @@ The tool call shape is:
 }
 ```
 
-## 6. Runtime control
+## 7. Runtime control
 
 Install the runtime server:
 
@@ -88,7 +103,15 @@ Click at 300, 200
 Take a screenshot
 ```
 
-## 7. Releasing
+## 8. Exporting
+
+```text
+Export the project with preset Windows Desktop to /tmp/MyGame.exe
+```
+
+This uses `export_project` and requires a valid Godot export preset in `export_presets.cfg`.
+
+## 9. Releasing
 
 Create a semver tag:
 
